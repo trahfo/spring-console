@@ -1,0 +1,122 @@
+{
+  "groups": [
+    {
+      "name": "spring-console",
+      "type": "io.github.springconsole.SpringConsoleProperties",
+      "description": "Interactive Kotlin REPL and MCP server for the running application."
+    },
+    {
+      "name": "spring-console.mcp",
+      "type": "io.github.springconsole.SpringConsoleProperties$Mcp"
+    },
+    {
+      "name": "spring-console.repl",
+      "type": "io.github.springconsole.SpringConsoleProperties$Repl"
+    },
+    {
+      "name": "spring-console.reload",
+      "type": "io.github.springconsole.SpringConsoleProperties$Reload"
+    }
+  ],
+  "properties": [
+    {
+      "name": "spring-console.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Master switch for the whole console.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring-console.default-rollback",
+      "type": "java.lang.Boolean",
+      "description": "Default for eval's rollback flag when the caller does not specify one.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring-console.eval-timeout-ms",
+      "type": "java.lang.Long",
+      "description": "Default user-code evaluation timeout in milliseconds, overridable per eval call.",
+      "defaultValue": 5000
+    },
+    {
+      "name": "spring-console.warmup",
+      "type": "java.lang.Boolean",
+      "description": "Pre-initialize the script compiler in a background thread at startup.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring-console.include-infrastructure-beans",
+      "type": "java.lang.Boolean",
+      "description": "Also bind Spring's internal beans (names under org.springframework.) into the REPL scope.",
+      "defaultValue": false
+    },
+    {
+      "name": "spring-console.default-imports",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Imports added to every snippet, e.g. com.example.domain.*."
+    },
+    {
+      "name": "spring-console.mcp.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Expose the MCP server over HTTP.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring-console.mcp.host",
+      "type": "java.lang.String",
+      "description": "Interface to bind. Local-only by default; the console executes arbitrary code.",
+      "defaultValue": "127.0.0.1"
+    },
+    {
+      "name": "spring-console.mcp.port",
+      "type": "java.lang.Integer",
+      "description": "MCP server port. 0 picks an ephemeral port.",
+      "defaultValue": 8085
+    },
+    {
+      "name": "spring-console.mcp.path",
+      "type": "java.lang.String",
+      "description": "URL path of the JSON-RPC endpoint.",
+      "defaultValue": "/mcp"
+    },
+    {
+      "name": "spring-console.mcp.stdio",
+      "type": "java.lang.Boolean",
+      "description": "Serve MCP over stdin/stdout instead of HTTP; disables the terminal REPL.",
+      "defaultValue": false
+    },
+    {
+      "name": "spring-console.repl.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Start the interactive terminal REPL when a usable terminal is attached.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring-console.reload.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Allow reload to recompile and restart the application context.",
+      "defaultValue": true
+    },
+    {
+      "name": "spring-console.reload.command",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Build command for incremental recompilation. Auto-detected from gradlew/mvnw when empty."
+    },
+    {
+      "name": "spring-console.reload.project-dir",
+      "type": "java.lang.String",
+      "description": "Root of the project's build; defaults to the process working directory."
+    },
+    {
+      "name": "spring-console.reload.compile-timeout-ms",
+      "type": "java.lang.Long",
+      "description": "Maximum time to wait for the build tool.",
+      "defaultValue": 120000
+    },
+    {
+      "name": "spring-console.reload.restart-timeout-ms",
+      "type": "java.lang.Long",
+      "description": "Maximum time to wait for the restarted context to come up.",
+      "defaultValue": 60000
+    }
+  ]
+}

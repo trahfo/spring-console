@@ -16,6 +16,7 @@ import kotlin.test.assertTrue
 @SpringBootTest(
     classes = [ConsoleTestApp::class],
     properties = [
+        "spring-console.enabled=false", // this test drives its own ConsoleService instance
         "spring.datasource.url=jdbc:h2:mem:console-it;DB_CLOSE_DELAY=-1",
         "logging.level.org.hibernate=warn",
     ],

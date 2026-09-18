@@ -23,7 +23,10 @@ import kotlin.test.assertTrue
 
 @SpringBootTest(
     classes = [ConsoleTestApp::class],
-    properties = ["spring.datasource.url=jdbc:h2:mem:mcp-it;DB_CLOSE_DELAY=-1"],
+    properties = [
+        "spring-console.enabled=false", // this test drives its own transport instance
+        "spring.datasource.url=jdbc:h2:mem:mcp-it;DB_CLOSE_DELAY=-1",
+    ],
 )
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class McpServerIntegrationTest {
