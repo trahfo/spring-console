@@ -26,36 +26,73 @@ class EvalService(
     @Volatile
     private var executor: ExecutorService = newExecutor()
 
+    /**
+     * Compilation is never interrupted (see [KotlinReplEngine.eval]) and is
+     * bounded by the compiler itself; this cap only guards against a
+     * pathologically hung compiler.
+     */
+    private val compilePhaseCapMs: Long = 120_000
+
+    /**
+     * Evaluates [code]. [timeoutMs] bounds the *user-code* phase of the
+     * snippet; compilation time is not counted against it.
+     */
     fun eval(code: String, rollback: Boolean = true, timeoutMs: Long? = null): EvalResult {
         val effectiveTimeout = (timeoutMs ?: defaultTimeoutMs).coerceAtLeast(1)
         val capture = OutputCapture()
         val startNanos = System.nanoTime()
+        val evaluationStarted = java.util.concurrent.CountDownLatch(1)
 
         val future = executor.submit(
             Callable {
                 capture.capture {
                     transactionalExecutor.execute(rollback) {
-                        engineHolder.engine().eval(code)
+                        engineHolder.engine().eval(code) { evaluationStarted.countDown() }
                     }
                 }
             },
         )
 
+        // Phase 1 — compilation: wait until user code starts (or the task ends
+        // early on a compile error). Never interrupt this phase: an interrupt
+        // inside the compiler's NIO reads would poison its jar-channel caches
+        // for the rest of the JVM.
+        val compileDeadline = System.nanoTime() + compilePhaseCapMs * 1_000_000
+        while (!future.isDone && !evaluationStarted.await(25, TimeUnit.MILLISECONDS)) {
+            if (System.nanoTime() > compileDeadline) {
+                executor = newExecutor()
+                engineHolder.reset()
+                log.error("Snippet compilation hung for over {} ms; abandoning its thread", compilePhaseCapMs)
+                return EvalResult(
+                    status = EvalStatus.TIMEOUT,
+                    printedOutput = capture.output(),
+                    executionTimeMs = elapsedMs(startNanos),
+                    result = "Compilation did not complete within ${compilePhaseCapMs}ms.",
+                )
+            }
+        }
+
+        // Phase 2 — user code: interruption is safe now.
         return try {
             val sandboxed = future.get(effectiveTimeout, TimeUnit.MILLISECONDS)
             toResult(sandboxed.value, sandboxed.rolledBack, capture, elapsedMs(startNanos))
         } catch (e: TimeoutException) {
             future.cancel(true)
-            // The evaluation thread may still be running; abandon it so subsequent
-            // evaluations are not queued behind a runaway snippet.
+            // The evaluation thread may ignore the interrupt; abandon it so
+            // subsequent evaluations are not queued behind a runaway snippet.
             executor = newExecutor()
-            log.warn("Snippet evaluation timed out after {} ms", effectiveTimeout)
+            // An interrupt mid-evaluation corrupts the REPL compiler's IR
+            // state (psi2ir crashes on every later snippet), so the engine —
+            // including accumulated snippet state — must be discarded.
+            engineHolder.reset()
+            log.warn("Snippet evaluation timed out after {} ms; REPL session state was reset", effectiveTimeout)
             EvalResult(
                 status = EvalStatus.TIMEOUT,
                 printedOutput = capture.output(),
                 executionTimeMs = elapsedMs(startNanos),
                 result = "Evaluation exceeded ${effectiveTimeout}ms and was cancelled. " +
-                    "The snippet thread was interrupted but may still be running.",
+                    "The snippet thread was interrupted but may still be running. " +
+                    "REPL session state (previously declared values) was reset.",
             )
         } catch (e: ExecutionException) {
             val cause = e.cause ?: e

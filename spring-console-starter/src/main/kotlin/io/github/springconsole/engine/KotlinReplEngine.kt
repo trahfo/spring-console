@@ -83,12 +83,35 @@ class KotlinReplEngine(
         }
     }
 
+    private val stateLock = java.util.concurrent.locks.ReentrantLock()
+
     /**
-     * Compiles and evaluates one snippet. Serialized: the underlying REPL
-     * state is not safe for concurrent use.
+     * Compiles and evaluates one snippet. The REPL state is not safe for
+     * concurrent use, so evaluations are serialized on [stateLock]; when a
+     * previous (runaway) snippet still holds the lock, this fails fast rather
+     * than queueing forever.
+     *
+     * [onEvaluationStart] fires after compilation succeeds, immediately before
+     * user code runs. Callers use it to scope cancellation to user code only:
+     * interrupting a thread inside the Kotlin compiler closes the compiler's
+     * shared classpath jar channels (`ClosedByInterruptException`) and
+     * permanently poisons compilation for the whole JVM.
      */
-    @Synchronized
-    fun eval(code: String): SnippetOutcome {
+    fun eval(code: String, onEvaluationStart: () -> Unit = {}): SnippetOutcome {
+        if (!stateLock.tryLock(5, java.util.concurrent.TimeUnit.SECONDS)) {
+            return SnippetOutcome.EngineError(
+                "A previous evaluation is still running (possibly a runaway snippet that ignored interruption). " +
+                    "Retry once it finishes, or restart the application.",
+            )
+        }
+        try {
+            return doEval(code, onEvaluationStart)
+        } finally {
+            stateLock.unlock()
+        }
+    }
+
+    private fun doEval(code: String, onEvaluationStart: () -> Unit): SnippetOutcome {
         val snippetNo = snippetCounter.getAndIncrement()
         val source = code.toScriptSource("Snippet_$snippetNo.kts")
 
@@ -97,6 +120,7 @@ class KotlinReplEngine(
             is ResultWithDiagnostics.Success -> result.value
         }
 
+        onEvaluationStart()
         return when (val result = runBlocking { evaluator.eval(compiled, evaluationConfiguration) }) {
             is ResultWithDiagnostics.Failure -> SnippetOutcome.EngineError(
                 result.reports.joinToString("; ") { it.message }.ifEmpty { "Unknown evaluation failure" },
