@@ -4,7 +4,7 @@ Product & Technical Requirements Document: Spring Boot Kotlin Agent Console
 
 The Spring Boot Kotlin Agent Console provides an interactive, Kotlin-driven REPL runtime embedded in Spring Boot applications. Designed symmetrically for human developers and autonomous AI agents, it exposes the running ApplicationContext as an executable sandbox.
 
-The Core USP: The console treats AI agents as first-class citizens by exposing a native Model Context Protocol (MCP) server alongside the local CLI. Agents do not merely edit static code; they can actively introspect beans, execute transactional dry-run scripts, verify runtime hypotheses, trigger recompilations, and hot reload the Spring context within a single automated loop.
+The Core USP: The console treats AI agents as first-class citizens by exposing a native Model Context Protocol (MCP) server alongside the local CLI. Agents do not merely edit static code; they can actively introspect beans, execute live scripts with permanent consequences, verify runtime hypotheses, trigger recompilations, and hot reload the Spring context within a single automated loop.
 
 2. System Architecture
 
@@ -25,7 +25,7 @@ The Core USP: The console treats AI agents as first-class citizens by exposing a
 |                    Kotlin Script Execution Engine                       |
 |   - kotlin-scripting-jvm-host (JvmReplCompiler, JvmReplEvaluator)       |
 |   - Dynamic Bean Scope Binder (providedProperties / implicitReceivers)  |
-|   - Execution Sandbox (Transactional Rollback Wrapping)                 |
+|   - Execution Runtime (Direct Execution with Permanent Consequences)    |
 +------------------------------------+------------------------------------+
                                      |
                                      v
@@ -34,7 +34,7 @@ The Core USP: The console treats AI agents as first-class citizens by exposing a
 |   - Dynamic RestartClassLoader (Spring Boot DevTools Pattern)           |
 |   - Compilation Bridge (Incremental Gradle/Maven daemon or K2 Compiler) |
 |   - Bean Lifecycle Manager (ApplicationContext close & re-bootstrap)    |
-+-------------------------------------------------------------------------+
++------------------------------------+------------------------------------+
 
 
 3. Agent-First Interface (MCP Tool Specifications)
@@ -44,7 +44,7 @@ The console implements an MCP server endpoint. Agents interact with the runtime 
 Exposed MCP Tools
 
 Tool Name	Parameters	Return Type	Description
-eval	code: String, rollback: Boolean = false, timeoutMs: Long = 5000	EvalResult	Executes Kotlin code in the context of the running application.
+eval	code: String, timeoutMs: Long = 5000	EvalResult	Executes Kotlin code in the context of the running application with permanent consequences.
 list_beans	packageFilter: String?, includeProxies: Boolean = false	List	Lists all beans registered in the context with their resolved types.
 inspect_bean	beanName: String	BeanDetails	Inspects bean methods, properties, and runtime proxy targets.
 reload	recompile: Boolean = true	ReloadResult	Compiles modified code, bounces the context, and re-binds the REPL.
@@ -58,7 +58,6 @@ Schema Payloads
   "result": "Any serialized object / string representation",
   "printedOutput": "stdout/stderr captured during evaluation",
   "executionTimeMs": 42,
-  "transactionRolledBack": true,
   "compilationErrors": [
     {
       "line": 12,
@@ -82,11 +81,11 @@ FR-1: Automated Classpath & Bean Injection
 ⚬ FR-1.2: Spring proxies (CGLIB, JDK dynamic proxies) must be unwrapped to expose the primary class or interface types using AopUtils.getTargetClass(), ensuring accurate auto-completion and method invocation.
 ⚬ FR-1.3: Beans sharing names with Kotlin reserved words (e.g., val, fun, class) or containing symbols must be sanitized or aliased deterministically.
 
-FR-2: Safe "Try Out" Execution (Transactional Sandbox)
+FR-2: Direct Execution with Permanent Consequences
 
-⚬ FR-2.1: The engine must support a rollback: Boolean parameter (defaulting to true when invoked by an agent unless explicitly overridden).
-⚬ FR-2.2: When rollback = true, the script wrapper must execute within a newly created Spring TransactionStatus via PlatformTransactionManager and unconditionally trigger a rollback upon completion.
-⚬ FR-2.3: Any database mutations, dirty context states, or staged entity updates must revert completely, leaving the application state clean.
+⚬ FR-2.1: The engine executes snippets directly against the live ApplicationContext; all mutations and database updates have permanent consequences.
+⚬ FR-2.2: Standard Spring transactional annotations (@Transactional) on invoked beans and services manage their own transaction lifecycles naturally.
+⚬ FR-2.3: Return values (such as JPA/Hibernate entities) are unwrapped cleanly so that entities can be inspected in the console without lazy initialization exceptions.
 
 FR-3: Code Refresh & Reload Pipeline (reload!)
 
@@ -115,7 +114,7 @@ FR-4: Structured Error Reporting for Agent Self-Correction
 
 2. Introspect & Reproduce:
    - Call: inspect_bean(beanName = "orderDiscountService")
-   - Call: eval(code = "orderDiscountService.applyPromo(orderId = 1, code = 'NULL_CODE')", rollback = true)
+   - Call: eval(code = "orderDiscountService.applyPromo(orderId = 1, code = 'NULL_CODE')")
    - Result: RUNTIME_EXCEPTION (NullPointerException at OrderDiscountService.kt:42).
 
 3. Edit Source:
@@ -126,7 +125,7 @@ FR-4: Structured Error Reporting for Agent Self-Correction
    - Result: SUCCESS (Recompiled 1 file, context refreshed in 1.8s).
 
 5. Verify Fix:
-   - Call: eval(code = "orderDiscountService.applyPromo(orderId = 1, code = 'NULL_CODE')", rollback = true)
+   - Call: eval(code = "orderDiscountService.applyPromo(orderId = 1, code = 'NULL_CODE')")
    - Result: SUCCESS ("PromoResult(discount = 0.0, applied = false)").
 
 6. Agent commits change with zero application restarts.
@@ -137,7 +136,7 @@ FR-4: Structured Error Reporting for Agent Self-Correction
 ⚬ Phase 1: Kotlin Scripting Core Engine (Weeks 1–2)
   ⚬ Embed kotlin-scripting-jvm-host inside a Spring Boot starter module.
   ⚬ Implement unproxied bean scanning and providedProperties generation.
-  ⚬ Add the transactional execution wrapper with programmatic rollback.
+  ⚬ Build direct execution engine with permanent consequences and output capture.
 ⚬ Phase 2: Agent MCP Server & Terminal CLI (Weeks 3–4)
   ⚬ Implement MCP specification (tools: eval, list_beans, inspect_bean, get_context_schema).
   ⚬ Integrate JLine3 terminal client for local human interaction.
