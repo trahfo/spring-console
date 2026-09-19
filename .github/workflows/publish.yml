@@ -41,13 +41,37 @@ jobs:
             echo "VERSION=${TAG#v}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish to Maven Central (Sonatype Central Portal)
+      - name: Build and Sign Maven Central Bundle
         env:
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
-          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
         run: |
-          ./gradlew :spring-console-starter:publishMavenPublicationToSonatypeCentralRepository \
+          ./gradlew :spring-console-starter:bundleCentralZip \
             -Pversion="${{ steps.version.outputs.VERSION }}" \
             --no-daemon --stacktrace
+
+      - name: Upload Bundle to Sonatype Central Portal
+        env:
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          AUTH=$(printf "%s:%s" "${SONATYPE_USERNAME}" "${SONATYPE_PASSWORD}" | base64 | tr -d '\n')
+          BUNDLE_PATH="spring-console-starter/build/bundle.zip"
+
+          echo "Uploading bundle to Sonatype Central Portal..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${AUTH}" \
+            -F "bundle=@${BUNDLE_PATH};type=application/octet-stream" \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=spring-console-${VERSION}&publishingType=AUTOMATIC")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "Response code: $HTTP_CODE"
+          echo "Deployment ID / Response: $BODY"
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "Failed to upload bundle to Central Portal (HTTP $HTTP_CODE)" >&2
+            exit 1
+          fi

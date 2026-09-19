@@ -62,12 +62,8 @@ tasks.test {
 publishing {
     repositories {
         maven {
-            name = "SonatypeCentral"
-            url = uri("https://ossrh.central.sonatype.com/service/local/staging/deploy/maven2/")
-            credentials {
-                username = System.getenv("SONATYPE_USERNAME") ?: (findProperty("sonatypeUsername") as? String)
-                password = System.getenv("SONATYPE_PASSWORD") ?: (findProperty("sonatypePassword") as? String)
-            }
+            name = "Staging"
+            url = uri(layout.buildDirectory.dir("staging-deploy"))
         }
     }
     publications {
@@ -109,3 +105,11 @@ signing {
         sign(publishing.publications["maven"])
     }
 }
+
+val bundleCentralZip = tasks.register<Zip>("bundleCentralZip") {
+    dependsOn("publishMavenPublicationToStagingRepository")
+    from(layout.buildDirectory.dir("staging-deploy"))
+    archiveFileName.set("bundle.zip")
+    destinationDirectory.set(layout.buildDirectory)
+}
+
