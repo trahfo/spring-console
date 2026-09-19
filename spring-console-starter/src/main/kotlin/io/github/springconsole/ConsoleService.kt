@@ -4,19 +4,18 @@ import io.github.springconsole.api.BeanDetails
 import io.github.springconsole.api.BeanSummary
 import io.github.springconsole.api.ContextSchema
 import io.github.springconsole.api.EvalResult
+import io.github.springconsole.binding.ApplicationNamespaceResolver
 import io.github.springconsole.binding.BeanBinder
 import io.github.springconsole.binding.BoundBean
 import io.github.springconsole.engine.EngineHolder
 import io.github.springconsole.engine.EvalService
 import io.github.springconsole.engine.KotlinReplEngine
 import io.github.springconsole.engine.ReplBinding
-import io.github.springconsole.engine.TransactionalExecutor
 import io.github.springconsole.introspect.BeanIntrospector
 import io.github.springconsole.introspect.ContextSchemaService
 import org.slf4j.LoggerFactory
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ConfigurableApplicationContext
-import org.springframework.transaction.PlatformTransactionManager
 import kotlin.script.experimental.api.KotlinType
 
 /**
@@ -31,7 +30,10 @@ import kotlin.script.experimental.api.KotlinType
 class ConsoleService(
     val context: ConfigurableApplicationContext,
     val properties: SpringConsoleProperties,
-) : AutoCloseable {
+) : ConsoleOperations, AutoCloseable {
+
+    override val classLoader: ClassLoader?
+        get() = context.classLoader
 
     private val log = LoggerFactory.getLogger(ConsoleService::class.java)
 
@@ -39,49 +41,71 @@ class ConsoleService(
 
     private val boundBeans: List<BoundBean> by lazy { binder.boundBeans() }
 
+    private val namespaceResolver = ApplicationNamespaceResolver(context)
+
     private val engineHolder = EngineHolder {
         val bindings = boundBeans.map { ReplBinding(it.replName, KotlinType(it.type.kotlin), it.instance) } +
             ReplBinding("context", KotlinType(ApplicationContext::class), context)
+        val defaultImports = (
+            namespaceResolver.unambiguousClassImports +
+                namespaceResolver.packageImports +
+                listOf("java.time.*", "java.util.*", "io.github.springconsole.extensions.*") +
+                properties.defaultImports
+        ).distinct()
         KotlinReplEngine(
             bindings = bindings,
             baseClassLoader = context.classLoader ?: Thread.currentThread().contextClassLoader,
-            defaultImports = properties.defaultImports,
+            defaultImports = defaultImports,
         )
     }
 
-    private val transactionalExecutor = TransactionalExecutor(
-        context.beanFactory.getBeanProvider(PlatformTransactionManager::class.java).getIfUnique(),
-    )
-
-    private val evalService = EvalService(engineHolder, transactionalExecutor, properties.evalTimeoutMs)
+    private val evalService = EvalService(engineHolder, properties.evalTimeoutMs)
 
     private val introspector = BeanIntrospector { boundBeans }
 
     private val schemaService = ContextSchemaService(context) { boundBeans }
 
-    val rollbackSupported: Boolean
-        get() = transactionalExecutor.rollbackSupported
-
     /**
-     * Evaluates a Kotlin snippet. When [rollback] is null the configured
-     * default applies (rollback on, per FR-2.1).
+     * Evaluates a Kotlin snippet with permanent consequences against the live
+     * application context.
      */
-    fun eval(code: String, rollback: Boolean? = null, timeoutMs: Long? = null): EvalResult =
-        evalService.eval(code, rollback ?: properties.defaultRollback, timeoutMs)
+    override fun eval(code: String): EvalResult =
+        evalService.eval(code, null)
 
-    fun listBeans(packageFilter: String? = null, includeProxies: Boolean = false): List<BeanSummary> =
+    override fun eval(code: String, timeoutMs: Long?): EvalResult =
+        evalService.eval(code, timeoutMs)
+
+    override fun listBeans(): List<BeanSummary> =
+        introspector.listBeans(null, false)
+
+    override fun listBeans(packageFilter: String?): List<BeanSummary> =
+        introspector.listBeans(packageFilter, false)
+
+    override fun listBeans(packageFilter: String?, includeProxies: Boolean): List<BeanSummary> =
         introspector.listBeans(packageFilter, includeProxies)
 
-    fun inspectBean(beanName: String): BeanDetails? = introspector.inspectBean(beanName)
+    override fun inspectBean(beanName: String): BeanDetails? = introspector.inspectBean(beanName)
 
-    fun contextSchema(): ContextSchema = schemaService.schema()
+    override fun inspectClass(name: String, type: Class<*>): BeanDetails = introspector.inspectClass(name, type)
 
-    /** Pre-initializes the script compiler off the startup path. */
+    override fun resolveClassBySimpleName(simpleName: String): Class<*>? =
+        namespaceResolver.resolveClassBySimpleName(simpleName)
+
+    override fun contextSchema(): ContextSchema = schemaService.schema()
+
+    /**
+     * Pre-initializes the script compiler off the startup path.
+     *
+     * Deliberately routed through [EvalService] rather than calling the engine
+     * directly: all compiler work must happen on the evaluation thread (the
+     * Kotlin REPL compiler is thread-affine), so warming up elsewhere would
+     * corrupt the compiler for the first real snippet.
+     */
     fun warmUpAsync() {
         if (!properties.warmup) return
         Thread({
             try {
-                engineHolder.warmUp()
+                evalService.warmUp()
                 log.debug("Console engine warmed up")
             } catch (e: Exception) {
                 log.debug("Console engine warm-up failed", e)

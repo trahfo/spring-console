@@ -134,7 +134,7 @@ object ConsoleRuntime : Restarter.RestartCoordinator {
         }
 
         if (properties.repl.enabled) {
-            repl = ConsoleRepl(::console, { recompile -> reload(recompile) }, properties.defaultRollback)
+            repl = ConsoleRepl(::console, { recompile -> reload(recompile) })
                 .also { it.startIfInteractive() }
         }
     }
@@ -165,14 +165,17 @@ object ConsoleRuntime : Restarter.RestartCoordinator {
 
     override fun currentConsole(): ConsoleService? = current
 
-    /** Test hook: tears everything down so contexts in the same JVM stay isolated. */
-    internal fun resetForTests() {
-        synchronized(this) {
-            current?.close()
-            current = null
-            restarting = false
-            pendingAttach = null
-            shutdownTransports()
-        }
+    /**
+     * Tears the whole console runtime down: detaches the current context and
+     * stops every transport. Mainly for tests and embedders that manage
+     * multiple application contexts in one JVM.
+     */
+    @Synchronized
+    fun shutdown() {
+        current?.close()
+        current = null
+        restarting = false
+        pendingAttach = null
+        shutdownTransports()
     }
 }

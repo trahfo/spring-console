@@ -25,6 +25,7 @@ dependencies {
     // Optional integrations — only active when present on the host application's classpath
     compileOnly("jakarta.persistence:jakarta.persistence-api")
     compileOnly("org.springframework.data:spring-data-commons")
+    compileOnly("org.springframework.data:spring-data-jpa")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")

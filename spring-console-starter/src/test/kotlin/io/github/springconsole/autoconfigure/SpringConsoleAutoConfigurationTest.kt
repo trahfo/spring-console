@@ -35,7 +35,7 @@ class SpringConsoleAutoConfigurationTest {
 
     @AfterAll
     fun cleanup() {
-        ConsoleRuntime.resetForTests()
+        ConsoleRuntime.shutdown()
     }
 
     @Test

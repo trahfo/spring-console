@@ -26,12 +26,6 @@
       "defaultValue": true
     },
     {
-      "name": "spring-console.default-rollback",
-      "type": "java.lang.Boolean",
-      "description": "Default for eval's rollback flag when the caller does not specify one.",
-      "defaultValue": true
-    },
-    {
       "name": "spring-console.eval-timeout-ms",
       "type": "java.lang.Long",
       "description": "Default user-code evaluation timeout in milliseconds, overridable per eval call.",

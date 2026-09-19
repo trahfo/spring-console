@@ -1,5 +1,6 @@
 package io.github.springconsole.api
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonInclude
 
 /**
@@ -44,11 +45,19 @@ data class EvalResult(
     val status: EvalStatus,
     /** String representation of the evaluated expression's value, if any. */
     val result: String? = null,
+    /**
+     * The evaluated value itself, used **only** by the terminal renderer to
+     * build a structured, colorized view (tables for collections, key/value
+     * blocks for objects). It is deliberately excluded from every JSON payload
+     * ([JsonIgnore]) so MCP clients keep receiving the stable, serializable
+     * [result] string. A `Unit`-returning snippet stores `Unit` here; a
+     * snippet that returned `null` stores `null`.
+     */
+    @get:JsonIgnore
+    val rawValue: Any? = null,
     /** stdout/stderr captured while the snippet executed. */
     val printedOutput: String = "",
     val executionTimeMs: Long = 0,
-    /** True when the snippet ran inside a transaction that was rolled back. */
-    val transactionRolledBack: Boolean = false,
     val compilationErrors: List<CompilationError>? = null,
     val exception: ExceptionDetails? = null,
 )

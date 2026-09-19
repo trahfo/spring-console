@@ -47,6 +47,20 @@ class BeanIntrospector(private val boundBeansSupplier: () -> List<BoundBean>) {
         )
     }
 
+    /** Inspects an arbitrary class (such as a session variable's type). */
+    fun inspectClass(name: String, type: Class<*>): BeanDetails =
+        BeanDetails(
+            name = name,
+            replName = name,
+            targetType = type.name,
+            runtimeType = type.name,
+            proxied = false,
+            scope = "session",
+            interfaces = type.interfaces.map { it.name }.sorted(),
+            methods = publicDeclaredMethods(type),
+            properties = properties(type),
+        )
+
     private fun publicDeclaredMethods(type: Class<*>): List<MethodSignature> =
         type.methods
             .filter { it.declaringClass != Any::class.java && !it.isSynthetic }

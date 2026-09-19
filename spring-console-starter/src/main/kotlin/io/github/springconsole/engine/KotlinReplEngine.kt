@@ -32,8 +32,14 @@ class ReplBinding(
 
 /** Low-level outcome of compiling and evaluating one snippet. */
 sealed interface SnippetOutcome {
-    /** Snippet compiled and ran; [rendered] is the string form of its value, null for Unit. */
-    data class Success(val rendered: String?) : SnippetOutcome
+    /**
+     * Snippet compiled and ran.
+     *
+     * @param rendered the string form of its value, null for Unit.
+     * @param value the value itself, used by the terminal renderer for a
+     *   structured view. `Unit` for a statement, `null` for a null result.
+     */
+    data class Success(val rendered: String?, val value: Any?) : SnippetOutcome
 
     data class CompileError(val errors: List<CompilationError>) : SnippetOutcome
 
@@ -112,8 +118,9 @@ class KotlinReplEngine(
     }
 
     private fun doEval(code: String, onEvaluationStart: () -> Unit): SnippetOutcome {
+        val preprocessedCode = JavaDeclarationPreprocessor.preprocess(code)
         val snippetNo = snippetCounter.getAndIncrement()
-        val source = code.toScriptSource("Snippet_$snippetNo.kts")
+        val source = preprocessedCode.toScriptSource("Snippet_$snippetNo.kts")
 
         val compiled = when (val result = runBlocking { compiler.compile(listOf(source), compilationConfiguration) }) {
             is ResultWithDiagnostics.Failure -> return SnippetOutcome.CompileError(result.reports.toCompilationErrors())
@@ -125,12 +132,41 @@ class KotlinReplEngine(
             is ResultWithDiagnostics.Failure -> SnippetOutcome.EngineError(
                 result.reports.joinToString("; ") { it.message }.ifEmpty { "Unknown evaluation failure" },
             )
-            is ResultWithDiagnostics.Success -> when (val value = result.value.get().result) {
-                is ResultValue.Value -> SnippetOutcome.Success(renderValue(value.value))
-                is ResultValue.Unit -> SnippetOutcome.Success(null)
-                is ResultValue.Error -> SnippetOutcome.RuntimeError(value.error)
-                ResultValue.NotEvaluated -> SnippetOutcome.EngineError("Snippet was not evaluated")
+            is ResultWithDiagnostics.Success -> {
+                val evalVal = result.value.get()
+                initializeScriptInstanceProxies(evalVal)
+                when (val value = evalVal.result) {
+                    is ResultValue.Value -> {
+                        val unproxied = io.github.springconsole.binding.HibernateProxyHelper.initializeAndUnwrap(value.value)
+                        SnippetOutcome.Success(renderValue(unproxied), unproxied)
+                    }
+                    is ResultValue.Unit -> SnippetOutcome.Success(null, Unit)
+                    is ResultValue.Error -> SnippetOutcome.RuntimeError(value.error)
+                    ResultValue.NotEvaluated -> SnippetOutcome.EngineError("Snippet was not evaluated")
+                }
             }
+        }
+    }
+
+    private fun initializeScriptInstanceProxies(evalVal: Any?) {
+        if (evalVal == null) return
+        try {
+            val scriptInstanceMethod = evalVal.javaClass.methods.firstOrNull { it.name == "getScriptInstance" } ?: return
+            val instance = scriptInstanceMethod.invoke(evalVal) ?: return
+            for (field in instance.javaClass.declaredFields) {
+                field.isAccessible = true
+                val fieldValue = field.get(instance)
+                if (io.github.springconsole.binding.HibernateProxyHelper.isHibernateProxy(fieldValue)) {
+                    val unproxied = io.github.springconsole.binding.HibernateProxyHelper.initializeAndUnwrap(fieldValue)
+                    if (unproxied !== fieldValue) {
+                        try {
+                            field.set(instance, unproxied)
+                        } catch (ignored: Exception) {
+                        }
+                    }
+                }
+            }
+        } catch (ignored: Exception) {
         }
     }
 
@@ -148,7 +184,7 @@ class KotlinReplEngine(
             CompilationError(
                 line = it.location?.start?.line ?: -1,
                 column = it.location?.start?.col ?: -1,
-                message = it.message,
+                message = withCompilerHint(it.message),
                 severity = it.severity.name,
             )
         }
@@ -158,8 +194,29 @@ class KotlinReplEngine(
             CompilationError(
                 line = -1,
                 column = -1,
-                message = joinToString("; ") { it.message }.ifEmpty { "Unknown compilation failure" },
+                message = withCompilerHint(joinToString("; ") { it.message }.ifEmpty { "Unknown compilation failure" }),
             ),
         )
     }
 }
+
+/**
+ * Appends an actionable explanation when the scripting compiler cannot find the
+ * Kotlin standard library.
+ *
+ * That specific failure happens when the application runs from a **Spring Boot
+ * executable jar**: the jar nests `kotlin-stdlib` (and the application classes)
+ * inside `BOOT-INF/lib`, and the runtime Kotlin compiler can only read them as
+ * real files on disk. Without the hint, users see a bare
+ * "Unable to find kotlin stdlib, please specify it explicitly via
+ * \"kotlin.java.stdlib.jar\"" and have no idea how to fix it.
+ */
+internal fun withCompilerHint(message: String): String =
+    if (message.contains("Unable to find kotlin stdlib")) "$message $STDLIB_HINT" else message
+
+private const val STDLIB_HINT =
+    "(The runtime Kotlin compiler needs the Kotlin stdlib and the application classes as real files, " +
+        "but a Spring Boot executable jar nests them inside BOOT-INF/lib. Run the application from an " +
+        "exploded classpath instead — e.g. a Gradle-generated start script / `java -cp <runtime classpath>` — " +
+        "or extract the jar first: `java -Djarmode=tools -jar app.jar extract` and run the extracted " +
+        "`app/app.jar`.)"

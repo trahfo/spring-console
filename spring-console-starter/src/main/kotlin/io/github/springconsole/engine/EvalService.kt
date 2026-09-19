@@ -2,6 +2,7 @@ package io.github.springconsole.engine
 
 import io.github.springconsole.api.EvalResult
 import io.github.springconsole.api.EvalStatus
+import io.github.springconsole.binding.HibernateProxyHelper
 import org.slf4j.LoggerFactory
 import java.util.concurrent.Callable
 import java.util.concurrent.ExecutionException
@@ -11,13 +12,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
- * The console's evaluation front door: serializes snippet execution, applies
- * the transactional sandbox, captures printed output, enforces timeouts, and
- * renders everything into a deterministic [EvalResult].
+ * The console's evaluation front door: serializes snippet execution, executes
+ * with permanent consequences directly against the live context, captures
+ * printed output, enforces timeouts, and renders everything into a
+ * deterministic [EvalResult].
  */
 class EvalService(
     private val engineHolder: EngineHolder,
-    private val transactionalExecutor: TransactionalExecutor,
     private val defaultTimeoutMs: Long = 5_000,
 ) : AutoCloseable {
 
@@ -37,7 +38,7 @@ class EvalService(
      * Evaluates [code]. [timeoutMs] bounds the *user-code* phase of the
      * snippet; compilation time is not counted against it.
      */
-    fun eval(code: String, rollback: Boolean = true, timeoutMs: Long? = null): EvalResult {
+    fun eval(code: String, timeoutMs: Long? = null): EvalResult {
         val effectiveTimeout = (timeoutMs ?: defaultTimeoutMs).coerceAtLeast(1)
         val capture = OutputCapture()
         val startNanos = System.nanoTime()
@@ -46,9 +47,13 @@ class EvalService(
         val future = executor.submit(
             Callable {
                 capture.capture {
-                    transactionalExecutor.execute(rollback) {
-                        engineHolder.engine().eval(code) { evaluationStarted.countDown() }
-                    }
+                    val outcome = engineHolder.engine().eval(code) { evaluationStarted.countDown() }
+                    if (outcome is SnippetOutcome.Success) {
+                        val unproxied = HibernateProxyHelper.initializeAndUnwrap(outcome.value)
+                        if (unproxied !== outcome.value) {
+                            outcome.copy(value = unproxied)
+                        } else outcome
+                    } else outcome
                 }
             },
         )
@@ -74,8 +79,8 @@ class EvalService(
 
         // Phase 2 — user code: interruption is safe now.
         return try {
-            val sandboxed = future.get(effectiveTimeout, TimeUnit.MILLISECONDS)
-            toResult(sandboxed.value, sandboxed.rolledBack, capture, elapsedMs(startNanos))
+            val outcome = future.get(effectiveTimeout, TimeUnit.MILLISECONDS)
+            toResult(outcome, capture, elapsedMs(startNanos))
         } catch (e: TimeoutException) {
             future.cancel(true)
             // The evaluation thread may ignore the interrupt; abandon it so
@@ -108,16 +113,15 @@ class EvalService(
 
     private fun toResult(
         outcome: SnippetOutcome,
-        rolledBack: Boolean,
         capture: OutputCapture,
         executionTimeMs: Long,
     ): EvalResult = when (outcome) {
         is SnippetOutcome.Success -> EvalResult(
             status = EvalStatus.SUCCESS,
             result = outcome.rendered,
+            rawValue = outcome.value,
             printedOutput = capture.output(),
             executionTimeMs = executionTimeMs,
-            transactionRolledBack = rolledBack,
         )
         is SnippetOutcome.CompileError -> EvalResult(
             status = EvalStatus.COMPILATION_ERROR,
@@ -129,7 +133,6 @@ class EvalService(
             status = EvalStatus.RUNTIME_EXCEPTION,
             printedOutput = capture.output(),
             executionTimeMs = executionTimeMs,
-            transactionRolledBack = rolledBack,
             exception = StackTracePruner.details(outcome.exception),
         )
         is SnippetOutcome.EngineError -> EvalResult(
@@ -145,6 +148,25 @@ class EvalService(
     }
 
     private fun elapsedMs(startNanos: Long): Long = (System.nanoTime() - startNanos) / 1_000_000
+
+    /**
+     * Compiles and runs a trivial snippet to pay for the one-time script
+     * compiler initialization.
+     *
+     * Runs on the **same single thread** as every later [eval]: the Kotlin REPL
+     * compiler keeps thread-affine state, so warming up on another thread (as
+     * this used to) leaves the compiler unusable and the first real snippet
+     * fails with `Backend Internal error: Exception during psi2ir`
+     * (`SymbolTableSlice$Scoped.noScope`).
+     */
+    fun warmUp(timeoutMs: Long = 60_000) {
+        try {
+            executor.submit(Callable { engineHolder.engine().eval("0") })
+                .get(timeoutMs, TimeUnit.MILLISECONDS)
+        } catch (e: Exception) {
+            log.debug("Console engine warm-up failed", e)
+        }
+    }
 
     private fun newExecutor(): ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "spring-console-eval").apply { isDaemon = true }

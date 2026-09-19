@@ -10,12 +10,6 @@ class SpringConsoleProperties {
     /** Master switch for the whole console. */
     var enabled: Boolean = true
 
-    /**
-     * Default for `eval`'s rollback flag when the caller does not specify one
-     * (FR-2.1). Applies to MCP and REPL alike.
-     */
-    var defaultRollback: Boolean = true
-
     /** Default evaluation timeout, overridable per `eval` call. */
     var evalTimeoutMs: Long = 5_000
 

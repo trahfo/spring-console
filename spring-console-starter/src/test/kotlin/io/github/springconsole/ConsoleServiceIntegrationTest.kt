@@ -40,23 +40,10 @@ class ConsoleServiceIntegrationTest {
     }
 
     @Test
-    fun `mutations under rollback leave the database untouched`() {
-        val before = noteRepository.count()
-
-        val result = console.eval("noteService.add(\"sandboxed note\")", rollback = true)
+    fun `mutations are persisted with permanent consequences`() {
+        val result = console.eval("noteService.add(\"persistent note\").id")
 
         assertEquals(EvalStatus.SUCCESS, result.status, "unexpected: $result")
-        assertTrue(result.transactionRolledBack, "expected the sandbox transaction to roll back")
-        assertTrue(result.result!!.contains("sandboxed note"), "got: ${result.result}")
-        assertEquals(before, noteRepository.count(), "rollback must revert the insert (FR-2.3)")
-    }
-
-    @Test
-    fun `mutations without rollback are persisted`() {
-        val result = console.eval("noteService.add(\"persistent note\").id", rollback = false)
-
-        assertEquals(EvalStatus.SUCCESS, result.status, "unexpected: $result")
-        assertEquals(false, result.transactionRolledBack)
         assertEquals(1, noteRepository.findByTitle("persistent note").size)
 
         noteRepository.deleteAll()
@@ -64,14 +51,14 @@ class ConsoleServiceIntegrationTest {
 
     @Test
     fun `repository beans are bound through their user interface despite JDK proxying`() {
-        val result = console.eval("noteRepository.count()", rollback = true)
+        val result = console.eval("noteRepository.count()")
         assertEquals(EvalStatus.SUCCESS, result.status, "unexpected: $result")
         assertNotNull(result.result)
     }
 
     @Test
     fun `printed output is captured separately from the result`() {
-        val result = console.eval("println(\"side channel\"); 7 * 6", rollback = true)
+        val result = console.eval("println(\"side channel\"); 7 * 6")
         assertEquals(EvalStatus.SUCCESS, result.status)
         assertEquals("42", result.result)
         assertTrue(result.printedOutput.contains("side channel"), "got: ${result.printedOutput}")
@@ -79,7 +66,7 @@ class ConsoleServiceIntegrationTest {
 
     @Test
     fun `runtime exceptions carry pruned domain stack traces`() {
-        val result = console.eval("noteRepository.findById(999999L).get()", rollback = true)
+        val result = console.eval("noteRepository.findById(999999L).get()")
         assertEquals(EvalStatus.RUNTIME_EXCEPTION, result.status)
         val exception = assertNotNull(result.exception)
         assertEquals("java.util.NoSuchElementException", exception.type)
@@ -91,10 +78,10 @@ class ConsoleServiceIntegrationTest {
 
     @Test
     fun `timeouts interrupt the snippet and report TIMEOUT`() {
-        val result = console.eval("Thread.sleep(60_000)", rollback = false, timeoutMs = 400)
+        val result = console.eval("Thread.sleep(60_000)", timeoutMs = 400)
         assertEquals(EvalStatus.TIMEOUT, result.status)
 
-        val followUp = console.eval("\"alive\"", rollback = false)
+        val followUp = console.eval("\"alive\"")
         assertEquals(EvalStatus.SUCCESS, followUp.status, "console must recover after a timeout")
         assertEquals("alive", followUp.result)
     }

@@ -28,9 +28,4 @@ class EngineHolder(@Volatile private var factory: () -> KotlinReplEngine) {
             current = null
         }
     }
-
-    /** Eagerly initializes the engine off the caller's thread budget. */
-    fun warmUp() {
-        engine().eval("0")
-    }
 }

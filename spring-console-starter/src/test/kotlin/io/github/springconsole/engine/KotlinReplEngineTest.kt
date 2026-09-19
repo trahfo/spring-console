@@ -80,4 +80,13 @@ class KotlinReplEngineTest {
         val outcome = engine.eval("\"recovered\"")
         assertEquals("recovered", assertInstanceOf<SnippetOutcome.Success>(outcome).rendered)
     }
+
+    @Test
+    fun `evaluates Java-style variable declarations and preserves variable for subsequent snippets`() {
+        val outcome = engine.eval("private String x;")
+        assertInstanceOf<SnippetOutcome.Success>(outcome)
+
+        val assign = engine.eval("x = \"hello\"; x")
+        assertEquals("hello", assertInstanceOf<SnippetOutcome.Success>(assign).rendered)
+    }
 }
