@@ -1,0 +1,53 @@
+name: Publish to Maven Central
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g. 0.1.0)'
+        required: true
+
+jobs:
+  publish:
+    name: Publish to Sonatype Central Portal
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve publish version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            # Strip leading 'v' from release tag (e.g., v0.1.0 -> 0.1.0)
+            TAG="${{ github.ref_name }}"
+            echo "VERSION=${TAG#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to Maven Central (Sonatype Central Portal)
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        run: |
+          ./gradlew :spring-console-starter:publishMavenPublicationToSonatypeCentralRepository \
+            -Pversion="${{ steps.version.outputs.VERSION }}" \
+            --no-daemon --stacktrace

@@ -120,13 +120,22 @@ At the same time, the embedded MCP endpoint is available at `http://127.0.0.1:80
 
 ## Adding to your project
 
-Add the starter to any Spring Boot 3.x application:
+Add the dependency to any Spring Boot 3.x application:
 
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.springconsole:spring-console-starter:0.1.0-SNAPSHOT")
+    implementation("io.github.springconsole:spring-console:0.1.0")
 }
+```
+
+```xml
+<!-- pom.xml -->
+<dependency>
+    <groupId>io.github.springconsole</groupId>
+    <artifactId>spring-console</artifactId>
+    <version>0.1.0</version>
+</dependency>
 ```
 
 Only `spring-boot-starter` is required transitively; JPA/Spring Data integrations are detected automatically when present. Target applications require **zero custom Gradle tasks** and **zero custom configuration**.

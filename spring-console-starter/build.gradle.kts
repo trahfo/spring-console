@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.spring)
     `java-library`
     `maven-publish`
+    `signing`
 }
 
 description = "Spring Console — an interactive Kotlin REPL and MCP server for Spring Boot applications"
@@ -35,6 +36,7 @@ dependencies {
 
 java {
     withSourcesJar()
+    withJavadocJar()
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
 }
@@ -58,11 +60,22 @@ tasks.test {
 }
 
 publishing {
+    repositories {
+        maven {
+            name = "SonatypeCentral"
+            url = uri("https://ossrh.central.sonatype.com/service/local/staging/deploy/maven2/")
+            credentials {
+                username = System.getenv("SONATYPE_USERNAME") ?: (findProperty("sonatypeUsername") as? String)
+                password = System.getenv("SONATYPE_PASSWORD") ?: (findProperty("sonatypePassword") as? String)
+            }
+        }
+    }
     publications {
         create<MavenPublication>("maven") {
             from(components["java"])
+            artifactId = "spring-console"
             pom {
-                name.set("spring-console-starter")
+                name.set("spring-console")
                 description.set(project.description)
                 url.set("https://github.com/springconsole/spring-console")
                 licenses {
@@ -71,7 +84,28 @@ publishing {
                         url.set("https://opensource.org/licenses/MIT")
                     }
                 }
+                developers {
+                    developer {
+                        id.set("springconsole")
+                        name.set("Spring Console Contributors")
+                        url.set("https://github.com/springconsole")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:git://github.com/springconsole/spring-console.git")
+                    developerConnection.set("scm:git:ssh://github.com:springconsole/spring-console.git")
+                    url.set("https://github.com/springconsole/spring-console")
+                }
             }
         }
+    }
+}
+
+signing {
+    val signingKey = System.getenv("SIGNING_KEY") ?: (findProperty("signingKey") as? String)
+    val signingPassword = System.getenv("SIGNING_PASSWORD") ?: (findProperty("signingPassword") as? String)
+    if (!signingKey.isNullOrBlank()) {
+        useInMemoryPgpKeys(signingKey, signingPassword ?: "")
+        sign(publishing.publications["maven"])
     }
 }

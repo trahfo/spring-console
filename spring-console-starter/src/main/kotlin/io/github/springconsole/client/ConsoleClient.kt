@@ -19,7 +19,7 @@ object ConsoleClient {
 
         if (!remoteOps.ping()) {
             System.err.println("Error: Could not connect to Spring Console at $url.")
-            System.err.println("Ensure your Spring Boot application is running with spring-console-starter.")
+            System.err.println("Ensure your Spring Boot application is running with spring-console.")
             exitProcess(1)
         }
 
