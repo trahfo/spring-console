@@ -1,0 +1,33 @@
+def targetDir = System.getProperty('console.target.dir')
+def targetPath = targetDir ? new File(targetDir).canonicalPath : new File('.').canonicalPath
+
+allprojects { p ->
+    afterEvaluate {
+        if (p.projectDir.canonicalPath == targetPath) {
+            def hasBoot = p.plugins.hasPlugin('org.springframework.boot') || p.tasks.findByName('bootRun') != null
+            if (hasBoot) {
+                def resolveTask = p.tasks.findByName('resolveMainClassName')
+                p.tasks.register('consoleLaunchInfo') {
+                    if (resolveTask != null) {
+                        dependsOn(resolveTask)
+                    }
+                    doLast {
+                        def cp = p.sourceSets.main.runtimeClasspath.asPath
+                        def mainCls = p.tasks.findByName('bootJar')?.mainClass?.orNull \
+                                   ?: p.tasks.findByName('bootRun')?.mainClass?.orNull
+                        if (!mainCls && resolveTask != null) {
+                            try {
+                                def file = resolveTask.outputFile?.get()?.asFile
+                                if (file != null && file.exists()) {
+                                    mainCls = file.text.trim()
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                        println "CONSOLE_CP=" + cp
+                        println "CONSOLE_MAIN=" + (mainCls ?: "")
+                    }
+                }
+            }
+        }
+    }
+}
