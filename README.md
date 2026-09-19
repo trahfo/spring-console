@@ -43,6 +43,7 @@ and syntax highlighting; AI agents get the same capabilities as deterministic MC
 | [`examples/todo-app`](examples/todo-app) | A complete Spring Boot + React demo application with its own extensive [README](examples/todo-app/README.md) |
 | [Architecture Guide](ARCHITECTURE.md) | In-depth technical architecture, class interaction diagrams, bootup sequence, and autocomplete pipeline |
 | [MCP Guide](MCP.md) | Complete reference for AI agents, endpoints (`http://127.0.0.1:8085/mcp`), tool schemas, and client configuration |
+| [Comparison Guide](COMPARISON.md) | In-depth comparison against Spring Shell, CRaSH, JShell, Groovy Console, and Spring Boot Admin |
 
 ---
 
@@ -309,6 +310,13 @@ Every feature is covered by tests. The console tests live in
 | Commands | `repl/ReplCommandHandlerTest`, `repl/BracketsBalancedTest` |
 | End-to-end REPL path | `repl/ConsoleReplPipelineTest` |
 | MCP payload contract | `api/EvalResultSerializationTest` |
+
+---
+
+## Comparison with alternatives
+
+Looking for how `spring-console` compares to tools like Spring Shell, CRaSH, JShell, Groovy consoles, or Spring Boot Admin?
+See the comprehensive [Tool Comparison Guide](COMPARISON.md) for architectural teardowns, trade-offs, and a full feature ranking matrix.
 
 ---
 
