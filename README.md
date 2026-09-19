@@ -1,5 +1,9 @@
 # spring-console
 
+[![CI](https://github.com/trahfo/spring-console/actions/workflows/ci.yml/badge.svg)](https://github.com/trahfo/spring-console/actions/workflows/ci.yml)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.springconsole/spring-console.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.springconsole/spring-console)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 An interactive **Kotlin REPL and MCP server** embedded in your running Spring
 Boot application.
 
@@ -120,25 +124,42 @@ At the same time, the embedded MCP endpoint is available at `http://127.0.0.1:80
 
 ## Adding to your project
 
-Add the dependency to any Spring Boot 3.x application:
+`spring-console` is published to Maven Central under `io.github.springconsole:spring-console`.
 
-```kotlin
-// build.gradle.kts
-dependencies {
-    implementation("io.github.springconsole:spring-console:0.1.0")
-}
-```
+> [!TIP]
+> We recommend scoping `spring-console` as **`developmentOnly`** (Gradle) or **`<optional>true</optional>`** (Maven) so that the interactive REPL and MCP server are active during local development and testing, but automatically omitted when packaging production JARs or containers (following the exact same pattern as `spring-boot-devtools`).
+
+### Maven (`pom.xml`)
 
 ```xml
-<!-- pom.xml -->
 <dependency>
     <groupId>io.github.springconsole</groupId>
     <artifactId>spring-console</artifactId>
     <version>0.1.0</version>
+    <optional>true</optional>
 </dependency>
 ```
 
-Only `spring-boot-starter` is required transitively; JPA/Spring Data integrations are detected automatically when present. Target applications require **zero custom Gradle tasks** and **zero custom configuration**.
+### Gradle (Kotlin DSL — `build.gradle.kts`)
+
+```kotlin
+dependencies {
+    developmentOnly("io.github.springconsole:spring-console:0.1.0")
+}
+```
+
+### Gradle (Groovy DSL — `build.gradle`)
+
+```groovy
+dependencies {
+    developmentOnly 'io.github.springconsole:spring-console:0.1.0'
+}
+```
+
+### Compatibility & Zero-Configuration
+* **Works with any JVM language**: Pure Java, Kotlin, or Groovy projects. The starter embeds the lightweight Kotlin scripting engine transitively—**no Kotlin plugin or Kotlin configuration is required** in your Java project's build file.
+* **Spring Boot 3.x**: Fully compatible with Spring Boot 3.2, 3.3, 3.4, and 3.5+ on Java 17+.
+* **Auto-detection**: Spring Data JPA repositories, entities, and services are discovered automatically when present on your classpath. Target applications require zero custom Gradle/Maven tasks and zero extra configuration.
 
 ---
 
