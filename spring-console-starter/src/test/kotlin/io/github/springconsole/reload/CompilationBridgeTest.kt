@@ -18,6 +18,15 @@ class CompilationBridgeTest {
     }
 
     @Test
+    fun `finds the wrapper in ancestor directories for multi-module builds`(@TempDir root: File) {
+        File(root, "gradlew").writeText("#!/bin/sh")
+        val subproject = File(root, "examples/todo-app").apply { mkdirs() }
+
+        val command = CompilationBridge(subproject).command()!!
+        assertEquals(File(root, "gradlew").absolutePath, command.first())
+    }
+
+    @Test
     fun `detects a maven wrapper`(@TempDir dir: File) {
         File(dir, "mvnw").writeText("#!/bin/sh")
         val command = CompilationBridge(dir).command()!!

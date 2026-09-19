@@ -34,7 +34,7 @@ class CompilationBridge(
         val start = System.nanoTime()
         val process = try {
             ProcessBuilder(command)
-                .directory(projectDir)
+                .directory(buildRoot())
                 .redirectErrorStream(true)
                 .start()
         } catch (e: Exception) {
@@ -73,16 +73,19 @@ class CompilationBridge(
         }
     }
 
-    /** The build command: configured explicitly, or detected from the project layout. */
+    /**
+     * The build command: configured explicitly, or detected from the project
+     * layout. Wrappers are searched in the project directory and its
+     * ancestors, since in multi-module builds the process often runs in a
+     * subproject while gradlew/mvnw live at the repository root.
+     */
     fun command(): List<String>? {
         if (configuredCommand.isNotEmpty()) return configuredCommand
 
-        val gradlew = File(projectDir, if (isWindows()) "gradlew.bat" else "gradlew")
-        if (gradlew.isFile) {
+        findUpwards(if (isWindows()) "gradlew.bat" else "gradlew")?.let { gradlew ->
             return listOf(gradlew.absolutePath, "classes", "--console=plain", "-q")
         }
-        val mvnw = File(projectDir, if (isWindows()) "mvnw.cmd" else "mvnw")
-        if (mvnw.isFile) {
+        findUpwards(if (isWindows()) "mvnw.cmd" else "mvnw")?.let { mvnw ->
             return listOf(mvnw.absolutePath, "-q", "compile")
         }
         if (File(projectDir, "build.gradle.kts").isFile || File(projectDir, "build.gradle").isFile) {
@@ -94,10 +97,28 @@ class CompilationBridge(
         return null
     }
 
+    /** The directory the build command runs in: where the wrapper lives, else the project dir. */
+    private fun buildRoot(): File {
+        val command = command()?.firstOrNull() ?: return projectDir
+        val executable = File(command)
+        return if (executable.isAbsolute && executable.isFile) executable.parentFile else projectDir
+    }
+
+    private fun findUpwards(fileName: String): File? {
+        var dir: File? = projectDir.absoluteFile
+        repeat(MAX_ANCESTOR_SEARCH_DEPTH) {
+            val candidate = File(dir, fileName)
+            if (candidate.isFile) return candidate
+            dir = dir?.parentFile ?: return null
+        }
+        return null
+    }
+
     private fun isWindows(): Boolean = System.getProperty("os.name").lowercase().contains("win")
 
     companion object {
         private const val MAX_OUTPUT_CHARS = 512 * 1024
         private const val MAX_REPORTED_OUTPUT_CHARS = 8 * 1024
+        private const val MAX_ANCESTOR_SEARCH_DEPTH = 6
     }
 }
