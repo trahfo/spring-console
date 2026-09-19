@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: todo-app
+  datasource:
+    # DB_CLOSE_DELAY=-1 keeps the in-memory database alive while the process runs.
+    url: jdbc:h2:mem:todos;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+
+server:
+  port: 8080
+
+todo:
+  # Seed a few demo todos on first start (disabled in tests).
+  seed-demo-data: true
+
+logging:
+  level:
+    org.hibernate: warn
