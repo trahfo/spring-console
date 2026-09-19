@@ -39,7 +39,7 @@ class ApplicationNamespaceResolver(
 
     /**
      * Fully-qualified class names for classes whose simple name is unique across the project.
-     * E.g. `com.example.todo.todo.Todo` when no other `Todo` class exists.
+     * E.g. `com.example.todo.Todo` when no other `Todo` class exists.
      */
     val unambiguousClassImports: List<String> by lazy {
         classesBySimpleName
@@ -51,7 +51,7 @@ class ApplicationNamespaceResolver(
     }
 
     /**
-     * Wildcard package imports for all discovered project packages, e.g. `com.example.todo.todo.*`.
+     * Wildcard package imports for all discovered project packages, e.g. `com.example.todo.*`.
      */
     val packageImports: List<String> by lazy {
         val packages = mutableSetOf<String>()
