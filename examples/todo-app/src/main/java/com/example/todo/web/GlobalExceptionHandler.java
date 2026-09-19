@@ -1,6 +1,6 @@
 package com.example.todo.web;
 
-import com.example.todo.todo.TodoNotFoundException;
+import com.example.todo.TodoNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;

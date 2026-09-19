@@ -59,7 +59,7 @@ The Spring Boot application serves both the API and the static React bundle on `
 ## 3. Architecture & Domain Model
 
 ### Domain Entity: `Todo`
-Located in `com.example.todo.todo.Todo`:
+Located in `com.example.todo.Todo`:
 - `id`: Primary key (`Long`, auto-incremented)
 - `title`: String (required, max 200 characters)
 - `description`: String (optional, max 2000 characters)

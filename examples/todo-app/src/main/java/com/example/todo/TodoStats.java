@@ -1,4 +1,4 @@
-package com.example.todo.todo;
+package com.example.todo;
 
 /**
  * Aggregate counts shown in the UI footer.

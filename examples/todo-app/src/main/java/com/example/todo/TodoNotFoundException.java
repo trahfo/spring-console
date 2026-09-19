@@ -1,4 +1,4 @@
-package com.example.todo.todo;
+package com.example.todo;
 
 /**
  * Thrown when a todo id does not exist. Mapped to an HTTP 404 problem detail by

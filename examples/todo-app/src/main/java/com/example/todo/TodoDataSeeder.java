@@ -1,4 +1,4 @@
-package com.example.todo.todo;
+package com.example.todo;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

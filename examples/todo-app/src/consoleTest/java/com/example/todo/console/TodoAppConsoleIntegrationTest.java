@@ -1,8 +1,8 @@
 package com.example.todo.console;
 
-import com.example.todo.todo.Todo;
-import com.example.todo.todo.TodoRepository;
-import com.example.todo.todo.TodoResponse;
+import com.example.todo.Todo;
+import com.example.todo.TodoRepository;
+import com.example.todo.TodoResponse;
 import io.github.springconsole.ConsoleRuntime;
 import io.github.springconsole.ConsoleService;
 import io.github.springconsole.api.EvalResult;
@@ -59,7 +59,7 @@ class TodoAppConsoleIntegrationTest {
         assertThat(console()).as("console attaches on startup").isNotNull();
 
         EvalResult result = console()
-                .eval("todoService.create(com.example.todo.todo.TodoRequest(\"from console\", null, null)).id", null);
+                .eval("todoService.create(com.example.todo.TodoRequest(\"from console\", null, null)).id", null);
         assertThat(result.getStatus()).as("console eval failed: %s", result).isEqualTo(EvalStatus.SUCCESS);
 
         TodoResponse[] all = rest.getForObject("/api/todos", TodoResponse[].class);

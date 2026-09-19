@@ -1,4 +1,4 @@
-package com.example.todo.todo;
+package com.example.todo;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

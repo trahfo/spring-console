@@ -1,4 +1,4 @@
-package com.example.todo.todo;
+package com.example.todo;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
