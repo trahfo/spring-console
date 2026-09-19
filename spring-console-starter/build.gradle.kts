@@ -77,7 +77,7 @@ publishing {
             pom {
                 name.set("spring-console")
                 description.set(project.description)
-                url.set("https://github.com/springconsole/spring-console")
+                url.set("https://github.com/trahfo/spring-console")
                 licenses {
                     license {
                         name.set("MIT License")
@@ -86,15 +86,15 @@ publishing {
                 }
                 developers {
                     developer {
-                        id.set("springconsole")
-                        name.set("Spring Console Contributors")
-                        url.set("https://github.com/springconsole")
+                        id.set("trahfo")
+                        name.set("Jakob Sommerhuber")
+                        url.set("https://github.com/trahfo")
                     }
                 }
                 scm {
-                    connection.set("scm:git:git://github.com/springconsole/spring-console.git")
-                    developerConnection.set("scm:git:ssh://github.com:springconsole/spring-console.git")
-                    url.set("https://github.com/springconsole/spring-console")
+                    connection.set("scm:git:git://github.com/trahfo/spring-console.git")
+                    developerConnection.set("scm:git:ssh://github.com:trahfo/spring-console.git")
+                    url.set("https://github.com/trahfo/spring-console")
                 }
             }
         }

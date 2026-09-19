@@ -1,7 +1,7 @@
 # spring-console
 
 [![CI](https://github.com/trahfo/spring-console/actions/workflows/ci.yml/badge.svg)](https://github.com/trahfo/spring-console/actions/workflows/ci.yml)
-[![Maven Central](https://img.shields.io/maven-central/v/io.github.springconsole/spring-console.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.springconsole/spring-console)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.trahfo/spring-console.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.trahfo/spring-console)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 An interactive **Kotlin REPL and MCP server** embedded in your running Spring
@@ -124,7 +124,7 @@ At the same time, the embedded MCP endpoint is available at `http://127.0.0.1:80
 
 ## Adding to your project
 
-`spring-console` is published to Maven Central under `io.github.springconsole:spring-console`.
+`spring-console` is published to Maven Central under `io.github.trahfo:spring-console`.
 
 > [!TIP]
 > We recommend scoping `spring-console` as **`developmentOnly`** (Gradle) or **`<optional>true</optional>`** (Maven) so that the interactive REPL and MCP server are active during local development and testing, but automatically omitted when packaging production JARs or containers (following the exact same pattern as `spring-boot-devtools`).
@@ -133,7 +133,7 @@ At the same time, the embedded MCP endpoint is available at `http://127.0.0.1:80
 
 ```xml
 <dependency>
-    <groupId>io.github.springconsole</groupId>
+    <groupId>io.github.trahfo</groupId>
     <artifactId>spring-console</artifactId>
     <version>0.1.0</version>
     <optional>true</optional>
@@ -144,7 +144,7 @@ At the same time, the embedded MCP endpoint is available at `http://127.0.0.1:80
 
 ```kotlin
 dependencies {
-    developmentOnly("io.github.springconsole:spring-console:0.1.0")
+    developmentOnly("io.github.trahfo:spring-console:0.1.0")
 }
 ```
 
@@ -152,7 +152,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    developmentOnly 'io.github.springconsole:spring-console:0.1.0'
+    developmentOnly 'io.github.trahfo:spring-console:0.1.0'
 }
 ```
 

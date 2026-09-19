@@ -5,6 +5,6 @@ plugins {
 }
 
 allprojects {
-    group = "io.github.springconsole"
+    group = "io.github.trahfo"
     version = (findProperty("version") as? String)?.takeIf { it != "unspecified" } ?: "0.1.0-SNAPSHOT"
 }

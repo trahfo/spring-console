@@ -133,7 +133,7 @@ Integration tests verifying `spring-console` capabilities (evaluation, bean bind
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.github.springconsole:spring-console:0.1.0")
+    implementation("io.github.trahfo:spring-console:0.1.0")
 }
 ```
 
