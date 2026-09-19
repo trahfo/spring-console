@@ -126,18 +126,18 @@ class McpServerIntegrationTest {
         val structured = result.path("structuredContent")
         assertEquals("SUCCESS", structured.path("status").asText())
         assertEquals("42", structured.path("result").asText())
-        assertTrue(structured.path("transactionRolledBack").asBoolean(), "agent evals default to rollback")
 
         val text = result.path("content")[0].path("text").asText()
         assertTrue(text.contains("\"status\" : \"SUCCESS\""), "text content should be JSON: $text")
     }
 
     @Test
-    fun `eval tool rolls back database mutations by default`() {
+    fun `eval tool persists database mutations with permanent consequences`() {
         val before = noteRepository.count()
         val structured = callTool("eval", """{"code":"noteService.add(\"via mcp\")"}""").path("structuredContent")
         assertEquals("SUCCESS", structured.path("status").asText())
-        assertEquals(before, noteRepository.count())
+        assertEquals(before + 1, noteRepository.count())
+        noteRepository.deleteAll()
     }
 
     @Test
@@ -231,5 +231,46 @@ class McpServerIntegrationTest {
     fun `ping returns an empty result`() {
         val envelope = rpc("ping")
         assertTrue(envelope.path("result").isObject)
+    }
+
+    @Test
+    fun `SSE transport streams endpoint event and handles messages`() {
+        val sseRequest = HttpRequest.newBuilder(URI.create(endpoint))
+            .header("Accept", "text/event-stream")
+            .GET()
+            .build()
+
+        val responseStream = client.send(sseRequest, HttpResponse.BodyHandlers.ofLines())
+        assertEquals(200, responseStream.statusCode())
+        assertEquals("text/event-stream", responseStream.headers().firstValue("Content-Type").orElse(""))
+
+        val lines = responseStream.body().iterator()
+        val eventLine = lines.next()
+        assertEquals("event: endpoint", eventLine)
+        val dataLine = lines.next()
+        assertTrue(dataLine.startsWith("data: /mcp?sessionId="))
+        val postPath = dataLine.removePrefix("data: ")
+
+        // Post a message to the session endpoint
+        val postResponse = client.send(
+            HttpRequest.newBuilder(URI.create("http://127.0.0.1:${transport.boundPort}$postPath"))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString("""{"jsonrpc":"2.0","id":99,"method":"ping"}"""))
+                .build(),
+            HttpResponse.BodyHandlers.ofString(),
+        )
+        assertEquals(202, postResponse.statusCode())
+
+        // Read empty line after endpoint event
+        lines.next()
+
+        // Next event on SSE stream should be the message response
+        val msgEventLine = lines.next()
+        assertEquals("event: message", msgEventLine)
+        val msgDataLine = lines.next()
+        assertTrue(msgDataLine.startsWith("data: {"))
+        val parsed = mapper.readTree(msgDataLine.removePrefix("data: "))
+        assertEquals(99, parsed.path("id").asInt())
+        assertTrue(parsed.path("result").isObject)
     }
 }

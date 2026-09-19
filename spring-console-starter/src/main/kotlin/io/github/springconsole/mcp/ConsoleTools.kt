@@ -27,14 +27,12 @@ class ConsoleTools(
     fun definitions(): List<ToolDefinition> = listOf(
         ToolDefinition(
             name = "eval",
-            description = "Execute a Kotlin snippet against the running Spring ApplicationContext. " +
-                "Beans are pre-bound as typed variables (see list_beans for their REPL names); `context` " +
-                "holds the ApplicationContext. Snippets share state within a session. By default the " +
-                "snippet runs inside a transaction that is always rolled back, so database mutations " +
-                "leave no trace; pass rollback=false to persist changes.",
+            description = "Execute a Kotlin snippet directly against the running Spring ApplicationContext " +
+                "with permanent consequences. Beans are pre-bound as typed variables (see list_beans for their " +
+                "REPL names); `context` holds the ApplicationContext. Snippets share state within a session. " +
+                "Evaluations execute directly against the live context and persist all changes.",
             inputSchema = schema {
                 property("code", "string", "Kotlin code to evaluate", required = true)
-                property("rollback", "boolean", "Roll back all transactional changes after execution (default true)")
                 property("timeoutMs", "integer", "Max user-code execution time in ms (default 5000); compilation is not counted")
             },
         ),
@@ -93,9 +91,8 @@ class ConsoleTools(
             "eval" -> {
                 val code = arguments?.path("code")?.takeIf { it.isTextual }?.asText()
                     ?: return ToolResult(mapOf("error" to "Missing required argument: code"), isError = true)
-                val rollback = arguments.path("rollback").takeIf { it.isBoolean }?.asBoolean()
                 val timeoutMs = arguments.path("timeoutMs").takeIf { it.isIntegralNumber }?.asLong()
-                ToolResult(console.eval(code, rollback, timeoutMs))
+                ToolResult(console.eval(code, timeoutMs))
             }
             "list_beans" -> {
                 val packageFilter = arguments?.path("packageFilter")?.takeIf { it.isTextual }?.asText()

@@ -99,7 +99,7 @@ class McpServer(
                 "instructions",
                 "Interactive Kotlin console for a running Spring Boot application. " +
                     "Use list_beans/inspect_bean/get_context_schema to discover the runtime, eval to execute Kotlin " +
-                    "snippets against live beans (rolled back by default — pass rollback=false to persist), and " +
+                    "snippets against live beans with immediate and permanent consequences, and " +
                     "reload to recompile edited sources and hot-restart the context without killing the JVM.",
             )
         }
